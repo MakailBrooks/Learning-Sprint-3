@@ -28,53 +28,103 @@ public class SensorDataProcessor{
 
     // calculate data
     public void calculate(double d) {
-
         long startTime = System.nanoTime();
 
-        int i, j, k = 0;
-        double[][][] data2 = new double[data.length][data[0].length][data[0][0].length];
+        int lenI = data.length;
+        int lenJ = data[0].length;
+        int lenK = data[0][0].length;
 
-        BufferedWriter out;
+        // 1. MASSIVE OPTIMIZATION: 3D Array Allocation completely deleted.
+        // We do not need to store the data in memory if we stream it directly to the file.
 
-        // Write racing stats data into a file
+        BufferedWriter out = null;
+
         try {
             out = new BufferedWriter(new FileWriter("RacingStatsData.txt"));
 
-            for (i = 0; i < data.length; i++) {
-                for (j = 0; j < data[0].length; j++) {
-                    for (k = 0; k < data[0][0].length; k++) {
-                        data2[i][j][k] = data[i][j][k] / d - Math.pow(limit[i][j], 2.0);
+            // 2. Eradicate ALL division operations by caching their inverses
+            double invD = 1.0 / d;
+            double invLenK = 1.0 / lenK; 
 
-                        if (average(data2[i][j]) > 10 && average(data2[i][j]) < 50)
-                            break;
-                        else if (Math.max(data[i][j][k], data2[i][j][k]) > data[i][j][k])
-                            break;
-                        else if (Math.pow(Math.abs(data[i][j][k]), 3) < Math.pow(Math.abs(data2[i][j][k]), 3)
-                                && average(data[i][j]) < data2[i][j][k] && (i + 1) * (j + 1) > 0)
-                            data2[i][j][k] *= 2;
-                        else
-                            continue;
+            StringBuilder sb = new StringBuilder(lenJ * lenK * 10);
+
+            for (int i = 0; i < lenI; i++) {
+                for (int j = 0; j < lenJ; j++) {
+                    
+                    double[] currentData = data[i][j];
+                    double limitSq = limit[i][j] * limit[i][j];
+                    
+                    // 3. Inline the original average() method
+                    // Method calls inside tight loops add stack-frame overhead. 
+                    // Computing it inline is significantly faster.
+                    double sumData = 0.0;
+                    for (int k = 0; k < lenK; k++) {
+                        sumData += currentData[k];
                     }
-                }
-            }
+                    double avgData = sumData * invLenK; 
 
-            for (i = 0; i < data2.length; i++) {
-                for (j = 0; j < data2[0].length; j++) {
-                    out.write(data2[i][j] + "\t");
+                    double sumData2 = 0.0;
+                    
+                    sb.append("[");
+
+                    for (int k = 0; k < lenK; k++) {
+                        double val1 = currentData[k];
+                        double val2 = (val1 * invD) - limitSq;
+                        double finalVal = val2;
+
+                        sumData2 += val2;
+                        
+                        // Multiply instead of divide
+                        double avgData2 = sumData2 * invLenK;
+
+                        boolean breakLoop = false;
+
+                        // Evaluate logic
+                        if (avgData2 > 10.0 && avgData2 < 50.0) {
+                            breakLoop = true;
+                        } else if (val2 > val1) {
+                            breakLoop = true;
+                        } else if (Math.abs(val1) < Math.abs(val2) && avgData < val2) {
+                            finalVal = val2 * 2.0;
+                            sumData2 += val2; 
+                        }
+
+                        // Write value instantly
+                        sb.append(finalVal);
+                        
+                        if (breakLoop) {
+                            // 4. Mimic default Java Array behavior
+                            // If the loop breaks early, a real double[] array would have left 
+                            // the remaining elements as 0.0. We simply append 0.0 directly to the file.
+                            for (int rem = k + 1; rem < lenK; rem++) {
+                                sb.append(", 0.0");
+                            }
+                            break; 
+                        } else if (k < lenK - 1) {
+                            sb.append(", ");
+                        }
+                    }
+                    
+                    sb.append("]\t");
                 }
+                
+                out.write(sb.toString());
+                out.newLine();
+                sb.setLength(0); 
             }
 
             out.close();
 
-            long endTime = System.nanoTime();
-            long elapsedMs = (endTime - startTime) / 1_000_000;
+            long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
             System.out.println("calculate() completed in " + elapsedMs + " ms");
 
         } catch (Exception e) {
             System.out.println("Error= " + e);
-            long endTime = System.nanoTime();
-            long elapsedMs = (endTime - startTime) / 1_000_000;
+            long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
             System.out.println("calculate() failed after " + elapsedMs + " ms");
+            if (out != null) {
+                try { out.close(); } catch (Exception ex) {}
+            }
         }
     }
     
