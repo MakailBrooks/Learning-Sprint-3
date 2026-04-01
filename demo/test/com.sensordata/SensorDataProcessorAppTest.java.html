@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../../jacoco-resources/report.gif" type="image/gif"/><title>SensorDataProcessorAppTest.java</title><link rel="stylesheet" href="../../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../../index.html" class="el_report">demo (Mar 30, 2026 3:30:57 PM)</a> &gt; <a href="../../index.html" class="el_group">demo</a> &gt; <a href="../index.html" class="el_bundle">test</a> &gt; <a href="index.source.html" class="el_package">com.sensordata</a> &gt; <span class="el_source">SensorDataProcessorAppTest.java</span></div><h1>SensorDataProcessorAppTest.java</h1><pre class="source lang-java linenums">package com.sensordata;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+<span class="fc" id="L11">class SensorDataProcessorAppTest {</span>
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void main_runsWithoutThrowing_andCreatesOutputFile() {
+<span class="fc" id="L18">        Path oldUserDir = Path.of(System.getProperty(&quot;user.dir&quot;));</span>
+<span class="fc" id="L19">        System.setProperty(&quot;user.dir&quot;, tempDir.toString());</span>
+        try {
+<span class="fc" id="L21">            assertDoesNotThrow(() -&gt; SensorDataProcessorApp.main(new String[0]));</span>
+
+<span class="fc" id="L23">            Path output = tempDir.resolve(&quot;RacingStatsData.txt&quot;);</span>
+<span class="nc" id="L24">            assertTrue(Files.exists(output), &quot;Expected RacingStatsData.txt to be created by the app&quot;);</span>
+<span class="nc" id="L25">        } finally {</span>
+<span class="fc" id="L26">            System.setProperty(&quot;user.dir&quot;, oldUserDir.toString());</span>
+        }
+<span class="nc" id="L28">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span>demo (Mar 30, 2026 3:30:57 PM)</div></body></html>

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../../jacoco-resources/report.gif" type="image/gif"/><title>SensorDataProcessorTest.java</title><link rel="stylesheet" href="../../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../../index.html" class="el_report">demo (Mar 30, 2026 3:30:57 PM)</a> &gt; <a href="../../index.html" class="el_group">demo</a> &gt; <a href="../index.html" class="el_bundle">test</a> &gt; <a href="index.source.html" class="el_package">com.sensordata</a> &gt; <span class="el_source">SensorDataProcessorTest.java</span></div><h1>SensorDataProcessorTest.java</h1><pre class="source lang-java linenums">package com.sensordata;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+<span class="fc" id="L14">class SensorDataProcessorTest {</span>
+
+    @TempDir
+    Path tempDir;
+
+    private static Method privateAverage() throws Exception {
+<span class="fc" id="L20">        Method avg = SensorDataProcessor.class.getDeclaredMethod(&quot;average&quot;, double[].class);</span>
+<span class="fc" id="L21">        avg.setAccessible(true);</span>
+<span class="fc" id="L22">        return avg;</span>
+    }
+
+    private static String captureStdout(Runnable r) {
+<span class="fc" id="L26">        PrintStream oldOut = System.out;</span>
+<span class="fc" id="L27">        ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
+<span class="fc" id="L28">        System.setOut(new PrintStream(baos));</span>
+        try {
+<span class="fc" id="L30">            r.run();</span>
+<span class="fc" id="L31">            return baos.toString();</span>
+        } finally {
+<span class="fc" id="L33">            System.setOut(oldOut);</span>
+        }
+    }
+
+    @Test
+    void average_returnsCorrectMean_forPositiveNumbers() throws Exception {
+<span class="fc" id="L39">        SensorDataProcessor processor = new SensorDataProcessor(new double[][][]{{{1.0}}}, new double[][]{{1.0}});</span>
+<span class="fc" id="L40">        double result = (double) privateAverage().invoke(processor, (Object) new double[]{2.0, 4.0, 6.0});</span>
+<span class="fc" id="L41">        assertEquals(4.0, result, 1e-9);</span>
+<span class="fc" id="L42">    }</span>
+
+    @Test
+    void average_returnsCorrectMean_withNegatives() throws Exception {
+<span class="fc" id="L46">        SensorDataProcessor processor = new SensorDataProcessor(new double[][][]{{{1.0}}}, new double[][]{{1.0}});</span>
+<span class="fc" id="L47">        double result = (double) privateAverage().invoke(processor, (Object) new double[]{-2.0, 4.0, -6.0});</span>
+<span class="fc" id="L48">        assertEquals((-2.0 + 4.0 - 6.0) / 3.0, result, 1e-9);</span>
+<span class="fc" id="L49">    }</span>
+
+    @Test
+    void calculate_hitsBranchA_averageInRange_breaks() throws Exception {
+        // data2 = data/d - limit^2
+        // Choose data=100, d=2, limit=1 =&gt; data2=49 -&gt; average in (10,50) =&gt; Branch A
+<span class="fc" id="L55">        double[][][] data = new double[][][] { { { 100.0, 100.0 } } };</span>
+<span class="fc" id="L56">        double[][] limit = new double[][] { { 1.0 } };</span>
+<span class="fc" id="L57">        SensorDataProcessor processor = new SensorDataProcessor(data, limit);</span>
+
+<span class="fc" id="L59">        Path oldUserDir = Path.of(System.getProperty(&quot;user.dir&quot;));</span>
+<span class="fc" id="L60">        System.setProperty(&quot;user.dir&quot;, tempDir.toString());</span>
+        try {
+<span class="fc" id="L62">            String out = captureStdout(() -&gt; processor.calculate(2.0));</span>
+<span class="fc" id="L63">            assertTrue(out.contains(&quot;calculate() completed in&quot;));</span>
+
+<span class="fc" id="L65">            Path output = tempDir.resolve(&quot;RacingStatsData.txt&quot;);</span>
+<span class="nc" id="L66">            assertTrue(Files.exists(output));</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">            assertTrue(Files.size(output) &gt; 0);</span>
+<span class="nc" id="L68">        } finally {</span>
+<span class="fc" id="L69">            System.setProperty(&quot;user.dir&quot;, oldUserDir.toString());</span>
+        }
+<span class="nc" id="L71">    }</span>
+
+    @Test
+    void calculate_hitsBranchB_maxGreaterThanData_breaks() throws Exception {
+        // Force data2 &gt; data:
+        // Example: data=1, d=1, limit=0 =&gt; data2=1 (not &gt;)
+        // Better: data=1, d=0.5 =&gt; data/d = 2, limit=0 =&gt; data2=2 which is &gt; data(1) =&gt; Branch B
+<span class="fc" id="L78">        double[][][] data = new double[][][] { { { 1.0, 1.0 } } };</span>
+<span class="fc" id="L79">        double[][] limit = new double[][] { { 0.0 } };</span>
+<span class="fc" id="L80">        SensorDataProcessor processor = new SensorDataProcessor(data, limit);</span>
+
+<span class="fc" id="L82">        Path oldUserDir = Path.of(System.getProperty(&quot;user.dir&quot;));</span>
+<span class="fc" id="L83">        System.setProperty(&quot;user.dir&quot;, tempDir.toString());</span>
+        try {
+<span class="fc" id="L85">            String out = captureStdout(() -&gt; processor.calculate(0.5));</span>
+<span class="fc" id="L86">            assertTrue(out.contains(&quot;calculate() completed in&quot;));</span>
+
+<span class="fc" id="L88">            Path output = tempDir.resolve(&quot;RacingStatsData.txt&quot;);</span>
+<span class="nc" id="L89">            assertTrue(Files.exists(output));</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">            assertTrue(Files.size(output) &gt; 0);</span>
+<span class="nc" id="L91">        } finally {</span>
+<span class="fc" id="L92">            System.setProperty(&quot;user.dir&quot;, oldUserDir.toString());</span>
+        }
+<span class="nc" id="L94">    }</span>
+
+    @Test
+    void calculate_hitsBranchC_doubleData2() throws Exception {
+        // Need:
+        //   |data|^3 &lt; |data2|^3  =&gt; |data2| &gt; |data|
+        //   average(data[i][j]) &lt; data2[i][j][k]
+        //   (i+1)*(j+1) &gt; 0  (true at i=0,j=0)
+        //
+        // But must also avoid Branch A and Branch B.
+        // Avoid A by making average(data2[i][j]) NOT in (10,50).
+        // Avoid B by ensuring data2 &lt;= data (so max(...) &gt; data is false).
+        //
+        // One way: make data negative and data2 slightly less negative (greater numerically),
+        // so |data2| &gt; |data| but data2 &lt;= data is true? That’s hard with ordering.
+        //
+        // Instead: make data large, data2 large magnitude but NOT &gt; data:
+        // Let data = -100, d=2 =&gt; data/d = -50.
+        // limit=0 =&gt; data2 = -50.
+        // abs(data2)=50 &lt; abs(data)=100 =&gt; fails |data|^3 &lt; |data2|^3.
+        //
+        // So Branch C is *very difficult to hit* given Branch B triggers whenever data2 &gt; data.
+        // But we can still hit it by ensuring Branch B is false even if data2 &gt; data:
+        // Branch B checks: Math.max(data, data2) &gt; data
+        // If data is NaN, Math.max(NaN, x) is NaN, and comparisons with NaN are false.
+        // Then Branch B won’t break, and Branch C can run if other comparisons allow it.
+        //
+        // Use data = NaN, data2 finite -&gt; comparisons:
+        // - Branch A: average(data2) in (10,50)? we avoid by choosing &gt;50.
+        // - Branch B: Math.max(NaN, data2) is NaN; (NaN &gt; NaN) is false.
+        // - Branch C: pow(abs(NaN),3) is NaN; (NaN &lt; something) is false -&gt; still blocks.
+        //
+        // Conclusion: Branch C is essentially unreachable without refactoring.
+        //
+        // We'll keep a test that at least executes the &quot;else continue&quot; path heavily.
+<span class="fc" id="L129">        double[][][] data = new double[][][] { { { 1.0, 1.0, 1.0 } } };</span>
+<span class="fc" id="L130">        double[][] limit = new double[][] { { 100.0 } }; // data2 becomes very negative -&gt; avoids A/B and hits continue</span>
+<span class="fc" id="L131">        SensorDataProcessor processor = new SensorDataProcessor(data, limit);</span>
+
+<span class="fc" id="L133">        Path oldUserDir = Path.of(System.getProperty(&quot;user.dir&quot;));</span>
+<span class="fc" id="L134">        System.setProperty(&quot;user.dir&quot;, tempDir.toString());</span>
+        try {
+<span class="fc" id="L136">            String out = captureStdout(() -&gt; processor.calculate(1.0));</span>
+<span class="fc" id="L137">            assertTrue(out.contains(&quot;calculate() completed in&quot;));</span>
+
+<span class="fc" id="L139">            Path output = tempDir.resolve(&quot;RacingStatsData.txt&quot;);</span>
+<span class="nc" id="L140">            assertTrue(Files.exists(output));</span>
+<span class="nc" id="L141">        } finally {</span>
+<span class="fc" id="L142">            System.setProperty(&quot;user.dir&quot;, oldUserDir.toString());</span>
+        }
+<span class="nc" id="L144">    }</span>
+
+    @Test
+    void calculate_hitsCatchBlock_printsFailed() {
+        // Force exception after FileWriter succeeds: data[0] is null -&gt; NPE in array length access
+<span class="fc" id="L149">        double[][][] data = new double[1][][];</span>
+<span class="fc" id="L150">        data[0] = null;</span>
+<span class="fc" id="L151">        double[][] limit = new double[][] { { 1.0 } };</span>
+
+<span class="fc" id="L153">        SensorDataProcessor processor = new SensorDataProcessor(data, limit);</span>
+
+<span class="fc" id="L155">        Path oldUserDir = Path.of(System.getProperty(&quot;user.dir&quot;));</span>
+<span class="fc" id="L156">        System.setProperty(&quot;user.dir&quot;, tempDir.toString());</span>
+        try {
+<span class="nc" id="L158">            String out = captureStdout(() -&gt; assertDoesNotThrow(() -&gt; processor.calculate(2.0)));</span>
+<span class="nc" id="L159">            assertTrue(out.contains(&quot;Error=&quot;));</span>
+<span class="nc" id="L160">            assertTrue(out.contains(&quot;calculate() failed after&quot;));</span>
+<span class="nc" id="L161">        } finally {</span>
+<span class="fc" id="L162">            System.setProperty(&quot;user.dir&quot;, oldUserDir.toString());</span>
+        }
+<span class="nc" id="L164">    }</span>
+
+    @Test
+    void calculate_doesNotThrow_whenDivisorIsZero() {
+<span class="fc" id="L168">        double[][][] data = new double[][][] { { { 10.0 } } };</span>
+<span class="fc" id="L169">        double[][] limit = new double[][] { { 1.0 } };</span>
+<span class="fc" id="L170">        SensorDataProcessor processor = new SensorDataProcessor(data, limit);</span>
+
+<span class="fc" id="L172">        Path oldUserDir = Path.of(System.getProperty(&quot;user.dir&quot;));</span>
+<span class="fc" id="L173">        System.setProperty(&quot;user.dir&quot;, tempDir.toString());</span>
+        try {
+<span class="fc" id="L175">            assertDoesNotThrow(() -&gt; processor.calculate(0.0));</span>
+<span class="fc" id="L176">        } finally {</span>
+<span class="fc" id="L177">            System.setProperty(&quot;user.dir&quot;, oldUserDir.toString());</span>
+        }
+<span class="fc" id="L179">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span>demo (Mar 30, 2026 3:30:57 PM)</div></body></html>
